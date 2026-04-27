@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: roomsync-db
+    restart: always
+    environment:
+      POSTGRES_USER: johndoe
+      POSTGRES_PASSWORD: randompassword
+      POSTGRES_DB: roomsync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: roomsync-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://johndoe:randompassword@db:5432/roomsync?schema=public
+      JWT_SECRET: roomsync_super_secret_key_123
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
