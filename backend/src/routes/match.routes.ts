@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getMatches, likeUser } from '../controllers/match.controller';
+import { getMatches, likeUser, getLikes } from '../controllers/match.controller';
 import { authenticateJWT } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticateJWT);
 
 router.get('/', getMatches);
+router.get('/likes', getLikes);
 router.post('/like', likeUser);
 
 export default router;

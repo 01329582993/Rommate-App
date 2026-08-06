@@ -6,19 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum Role {
-  STUDENT
-  ADMIN
-}
-
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -28,8 +17,8 @@ model User {
   password      String?
   googleId      String?  @unique
   name          String
-  role          Role     @default(STUDENT)
-  gender        Gender?
+  role          String   @default("STUDENT")
+  gender        String?
   profile       Profile?
   groupId       String?
   group         Group?   @relation(fields: [groupId], references: [id])
@@ -53,9 +42,9 @@ model Profile {
   studyStyle         String // e.g., "QUIET", "MUSIC", "GROUP"
   tempPreference     String // e.g., "COLD", "WARM"
   socialLevel        String // e.g., "INTROVERT", "EXTROVERT"
-  dealBreakers       String[] // Array of strings
+  dealBreakers       String  // Stored as JSON string for SQLite
   bio                String?
-  preferencesJson    Json?    // For flexible future scoring
+  preferencesJson    String? // JSON string for SQLite
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

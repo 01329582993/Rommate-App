@@ -28,6 +28,7 @@ export const runAutoAssignment = async (req: Request, res: Response) => {
     });
 
     const results: any[] = [];
+    const unassignable: any[] = [];
 
     // 3. Process each gender group
     for (const gender in byGender) {
@@ -103,15 +104,20 @@ export const runAutoAssignment = async (req: Request, res: Response) => {
           pool = pool.filter(p => !memberIds.has(p.id));
         } else {
           // If we couldn't form a group for the lead, skip them for now
-          // In a real system, you'd handle "unassignable" students more robustly
-          pool.shift();
+          // Track as unassignable
+          const skipped = pool.shift();
+          if (skipped) unassignable.push(skipped);
         }
       }
+      
+      // Any remaining in pool (< 3) are unassignable for now
+      pool.forEach(p => unassignable.push(p));
     }
 
     res.json({
       message: 'Auto-assignment completed successfully',
       assignments: results,
+      unassignable: unassignable.map(u => ({ id: u.id, name: u.name, gender: u.gender })),
       remainingUnmatched: (await prisma.user.count({ where: { role: 'STUDENT', groupId: null } }))
     });
   } catch (error: any) {

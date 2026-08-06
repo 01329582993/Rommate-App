@@ -6,11 +6,18 @@ import { useRouter } from 'expo-router';
 import { ArrowRight, Moon, Zap, Wind, Trash2, BookOpen, Users, Thermometer, User, CheckCircle2 } from 'lucide-react-native';
 import { Theme } from '../src/theme';
 
+import { TextInput, ActivityIndicator, Alert } from 'react-native';
+import { apiRequest } from '../src/api';
+
+import { useAuth } from '../src/AuthContext';
+
 const { width } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { setHasProfile } = useAuth();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
     sleepSchedule: 'EARLY',
     noiseTolerance: 'MEDIUM',
@@ -23,9 +30,33 @@ export default function OnboardingScreen() {
     bio: ''
   });
 
-  const nextStep = () => {
-    if (step < 4) setStep(step + 1);
-    else router.replace('/(tabs)');
+  const nextStep = async () => {
+    if (step < 4) {
+      setStep(step + 1);
+    } else {
+      setLoading(true);
+      try {
+        const { response, data } = await apiRequest('/api/profile', {
+          method: 'POST',
+          body: profile,
+        });
+
+        if (response.ok) {
+          setHasProfile(true);
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert('Notice', data?.message || 'Profile saved with defaults');
+          setHasProfile(true);
+          router.replace('/(tabs)');
+        }
+      } catch (err) {
+        console.error('Error saving profile:', err);
+        setHasProfile(true);
+        router.replace('/(tabs)');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const renderOption = (key: string, value: any, label: string, icon: any) => {
@@ -139,21 +170,33 @@ export default function OnboardingScreen() {
           {step === 4 && (
             <View style={styles.bioContainer}>
                <Text style={styles.sectionLabel}>Short Bio</Text>
-               <View style={styles.roleCard}>
-                 <View style={styles.bioWrapper}>
-                    <Text style={styles.bioPlaceholder}>Write a few words about yourself...</Text>
-                 </View>
+               <View style={[styles.roleCard, { paddingVertical: 12 }]}>
+                 <TextInput
+                   style={{ flex: 1, fontSize: 16, color: '#111', minHeight: 80 }}
+                   multiline
+                   placeholder="Write a few words about yourself..."
+                   placeholderTextColor="#999"
+                   value={profile.bio}
+                   onChangeText={(text) => setProfile({ ...profile, bio: text })}
+                 />
                </View>
             </View>
           )}
         </View>
 
         <TouchableOpacity 
-          style={styles.continueButton}
+          style={[styles.continueButton, loading && { opacity: 0.7 }]}
           onPress={nextStep}
+          disabled={loading}
         >
-          <Text style={styles.continueText}>{step === 4 ? 'Complete Profile' : 'Next Step'}</Text>
-          <ArrowRight color="#fff" size={20} style={{ marginLeft: 10 }} />
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.continueText}>{step === 4 ? 'Complete Profile' : 'Next Step'}</Text>
+              <ArrowRight color="#fff" size={20} style={{ marginLeft: 10 }} />
+            </>
+          )}
         </TouchableOpacity>
         <View style={{ height: 40 }} />
       </ScrollView>

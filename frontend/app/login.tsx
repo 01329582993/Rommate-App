@@ -4,8 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Mail, Lock, Eye, ArrowRight, Building, CheckSquare, Square, Globe } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { Theme } from '../src/theme';
+import { useAuth } from '../src/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,6 +18,8 @@ export default function LoginScreen() {
   const [activeTab, setActiveTab] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [loading, setLoading] = useState(false);
 
+  const { login, loginWithGoogle } = useAuth();
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
@@ -25,44 +27,32 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    const result = await login(email, password);
+    setLoading(false);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        await SecureStore.setItemAsync('userToken', data.token);
-        await SecureStore.setItemAsync('userData', JSON.stringify(data.user));
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Login Failed', data.message || 'Invalid credentials');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Could not connect to the server');
-      console.error(error);
-    } finally {
-      setLoading(false);
+    if (result.ok) {
+      router.replace('/(tabs)');
+    } else {
+      Alert.alert('Login Failed', result.message || 'Invalid credentials');
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
-    // Simulate Google Login
-    setTimeout(async () => {
-      setLoading(false);
-      Alert.alert('Success', 'Logged in with Google');
+    const result = await loginWithGoogle();
+    setLoading(false);
+
+    if (result.ok) {
       router.replace('/(tabs)');
-    }, 1500);
+    } else {
+      Alert.alert('Google Login Failed', result.message || 'Unable to sign in');
+    }
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <ScrollView showsVerticalScrollIndicator={false} bounceless>
+      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
         
         <ImageBackground 
           source={require('../assets/login_hero_bg.png')} 

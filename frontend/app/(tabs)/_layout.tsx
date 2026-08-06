@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, MessageSquare, User } from 'lucide-react-native';
 import { Theme } from '../../src/theme';
-import { View, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 export default function TabsLayout() {
   return (

@@ -1,0 +1,12 @@
+{
+  "name": "rommate-app",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/start-dev.js",
+    "backend": "npm --prefix backend run dev",
+    "frontend": "npm --prefix frontend run start -- --clear"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
