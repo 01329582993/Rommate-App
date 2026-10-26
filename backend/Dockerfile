@@ -1,28 +1,35 @@
-# Build stage
-FROM node:20-alpine AS build
+# Multi-stage Dockerfile for RoomSync Backend
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm install
+RUN npm ci
 
-COPY . .
+COPY tsconfig.json ./
+COPY src ./src
 
 RUN npx prisma generate
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine
+# Production Runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/prisma ./prisma
+ENV NODE_ENV=production
+ENV PORT=5000
+
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm ci --only=production
+RUN npx prisma generate
+
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]

@@ -4,60 +4,55 @@ import prisma from '../utils/prisma';
 
 export const createGroup = async (req: AuthRequest, res: Response) => {
   try {
-    console.log('===== CREATE GROUP REQUEST =====');
-    console.log('User:', req.user);
-    console.log('Body:', req.body);
-    
     const userId = req.user?.userId;
     const { name } = req.body;
 
     if (!userId) {
-      console.log('No userId found');
       return res.status(401).json({ message: 'Unauthorized - no userId' });
     }
 
     if (!name) {
-      console.log('No group name provided');
       return res.status(400).json({ message: 'Group name is required' });
     }
 
-    console.log('Finding user with ID:', userId);
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    console.log('User found:', user?.id, user?.email);
     
+    // If user is already in a group, remove them from previous group seamlessly
     if (user?.groupId) {
-      console.log('User already in group:', user.groupId);
-      return res.status(400).json({ message: 'You are already in a group' });
+      const oldGroupId = user.groupId;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { groupId: null }
+      });
+      const remaining = await prisma.user.count({ where: { groupId: oldGroupId } });
+      if (remaining === 0) {
+        await prisma.group.delete({ where: { id: oldGroupId } }).catch(() => null);
+      }
     }
 
     // Create group first, then add user to it
-    console.log('Creating group with name:', name);
     const group = await prisma.group.create({
       data: {
         name
       }
     });
-    console.log('Group created:', group.id);
 
     // Update user to join the group
-    console.log('Updating user to join group');
     await prisma.user.update({
       where: { id: userId },
       data: { groupId: group.id }
     });
-    console.log('User updated');
 
     // Fetch group with members
     const groupWithMembers = await prisma.group.findUnique({
       where: { id: group.id },
       include: {
         members: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true, studentId: true, profile: true }
         }
       }
     });
 
-    console.log('Returning group:', groupWithMembers);
     res.status(201).json({
       message: 'Group created successfully',
       group: {
@@ -66,9 +61,7 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('===== CREATE GROUP ERROR =====');
-    console.error('Error:', error);
-    console.error('Stack:', error.stack);
+    console.error('Create Group Error:', error);
     res.status(500).json({ message: 'Error creating group', error: error.message });
   }
 };
@@ -103,11 +96,6 @@ export const joinGroup = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
     if (!inviteCode) return res.status(400).json({ message: 'Invite code is required' });
 
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    if (currentUser?.groupId) {
-      return res.status(400).json({ message: 'You are already in a group' });
-    }
-
     const group = await prisma.group.findUnique({ where: { id: inviteCode } });
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
@@ -115,6 +103,19 @@ export const joinGroup = async (req: AuthRequest, res: Response) => {
 
     if (group.isLocked) {
       return res.status(400).json({ message: 'This group is locked' });
+    }
+
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (currentUser?.groupId) {
+      const oldGroupId = currentUser.groupId;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { groupId: null }
+      });
+      const remaining = await prisma.user.count({ where: { groupId: oldGroupId } });
+      if (remaining === 0) {
+        await prisma.group.delete({ where: { id: oldGroupId } }).catch(() => null);
+      }
     }
 
     await prisma.user.update({
@@ -126,7 +127,7 @@ export const joinGroup = async (req: AuthRequest, res: Response) => {
       where: { id: group.id },
       include: {
         members: {
-          select: { id: true, name: true, profile: true }
+          select: { id: true, name: true, email: true, studentId: true, profile: true }
         }
       }
     });
@@ -168,7 +169,7 @@ export const addMemberToGroup = async (req: AuthRequest, res: Response) => {
       where: { id: requester.group.id },
       include: {
         members: {
-          select: { id: true, name: true, profile: true }
+          select: { id: true, name: true, email: true, profile: true }
         }
       }
     });
@@ -210,7 +211,7 @@ export const removeMemberFromGroup = async (req: AuthRequest, res: Response) => 
       where: { id: requester.group.id },
       include: {
         members: {
-          select: { id: true, name: true, profile: true }
+          select: { id: true, name: true, email: true, studentId: true, profile: true }
         }
       }
     });
@@ -245,13 +246,15 @@ export const lockGroup = async (req: AuthRequest, res: Response) => {
 export const getMyGroup = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         group: {
           include: {
             members: {
-              select: { id: true, name: true, profile: true }
+              select: { id: true, name: true, email: true, studentId: true, profile: true }
             }
           }
         }
@@ -275,7 +278,7 @@ export const leaveGroup = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user?.groupId) {
-      return res.status(400).json({ message: 'You are not in a group' });
+      return res.status(200).json({ message: 'You are not in a group', ok: true });
     }
 
     const groupId = user.groupId;
@@ -292,12 +295,11 @@ export const leaveGroup = async (req: AuthRequest, res: Response) => {
     });
 
     if (remainingMembers === 0) {
-      await prisma.group.delete({ where: { id: groupId } });
+      await prisma.group.delete({ where: { id: groupId } }).catch(() => null);
     }
 
-    res.json({ message: 'Left group successfully' });
+    res.json({ message: 'Left group successfully', ok: true });
   } catch (error: any) {
     res.status(500).json({ message: 'Error leaving group', error: error.message });
   }
 };
-

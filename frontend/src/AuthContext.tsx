@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getStoredToken, getStoredUser, saveAuthSession, clearAuthSession, apiRequest } from './api';
+import { getStoredToken, getStoredUser, saveAuthSession, clearAuthSession, apiRequest, setUnauthorizedHandler } from './api';
+
+type Result = { ok: boolean; message?: string; user?: any };
 
 interface AuthContextType {
   token: string | null;
   user: any | null;
   hasProfile: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>;
-  loginWithGoogle: () => Promise<{ ok: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<Result>;
+  register: (input: { name: string; email: string; password: string; gender?: string; studentId?: string }) => Promise<Result>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
   setHasProfile: (value: boolean) => void;
 }
 
@@ -21,86 +22,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasProfile, setHasProfile] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(true);
 
-  const checkProfileStatus = async (authToken: string) => {
-    try {
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/profile/me`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      return res.ok;
-    } catch (e) {
-      console.error('Failed to check profile status:', e);
-      return true; // Fallback to true to avoid routing loops on network error
-    }
-  };
-
-  useEffect(() => {
-    // Load stored session on startup
-    const loadSession = async () => {
-      try {
-        const [storedToken, storedUser] = await Promise.all([
-          getStoredToken(),
-          getStoredUser(),
-        ]);
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(storedUser);
-          const hasProf = await checkProfileStatus(storedToken);
-          setHasProfile(hasProf);
-        }
-      } catch (e) {
-        console.error('Failed to load session:', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSession();
-  }, []);
-
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const { response, data } = await apiRequest('/api/auth/login', {
-        method: 'POST',
-        body: { email, password },
-      });
-
-      if (response.ok && data.token) {
-        await saveAuthSession(data.token, data.user);
-        setToken(data.token);
-        setUser(data.user);
-        const hasProf = await checkProfileStatus(data.token);
-        setHasProfile(hasProf);
-        return { ok: true };
-      }
-      return { ok: false, message: data?.message || 'Login failed' };
-    } catch (e: any) {
-      return { ok: false, message: 'Could not connect to server' };
-    }
-  }, []);
-
-  const loginWithGoogle = useCallback(async () => {
-    try {
-      const { response, data } = await apiRequest('/api/auth/google', {
-        method: 'POST',
-        body: { idToken: 'demo-google-token' },
-      });
-
-      if (response.ok && data.token) {
-        await saveAuthSession(data.token, data.user);
-        setToken(data.token);
-        setUser(data.user);
-        const hasProf = await checkProfileStatus(data.token);
-        setHasProfile(hasProf);
-        return { ok: true };
-      }
-      return { ok: false, message: data?.message || 'Google login failed' };
-    } catch (e: any) {
-      return { ok: false, message: 'Could not connect to server' };
-    }
-  }, []);
-
   const logout = useCallback(async () => {
     await clearAuthSession();
     setToken(null);
@@ -108,13 +29,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHasProfile(true);
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    const storedUser = await getStoredUser();
-    if (storedUser) setUser(storedUser);
+  // Session expired / account removed -> back to the login screen.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
+
+  // true = profile exists, false = needs onboarding. On network trouble we assume it exists
+  // so a flaky connection never traps someone in onboarding.
+  const checkProfileStatus = async (): Promise<boolean> => {
+    try {
+      const { response } = await apiRequest('/api/profile/me');
+      if (response.status === 404) return false;
+      return true;
+    } catch {
+      return true;
+    }
+  };
+
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const [storedToken, storedUser] = await Promise.all([getStoredToken(), getStoredUser()]);
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(storedUser);
+          setHasProfile(await checkProfileStatus());
+        }
+      } catch (e) {
+        console.warn('Failed to load session:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSession();
+  }, []);
+
+  const startSession = async (data: any): Promise<Result> => {
+    await saveAuthSession(data.token, data.user);
+    setUser(data.user);
+    setToken(data.token);
+    setHasProfile(await checkProfileStatus());
+    return { ok: true, user: data.user };
+  };
+
+  const login = useCallback(async (email: string, password: string): Promise<Result> => {
+    try {
+      const { response, data } = await apiRequest('/api/auth/login', { method: 'POST', body: { email, password } });
+      if (response.ok && data?.token) return await startSession(data);
+      return { ok: false, message: data?.message || 'Login failed' };
+    } catch (e: any) {
+      return { ok: false, message: e?.message || 'Could not connect to the server' };
+    }
+  }, []);
+
+  const register = useCallback(async (input: { name: string; email: string; password: string; gender?: string }): Promise<Result> => {
+    try {
+      const { response, data } = await apiRequest('/api/auth/register', { method: 'POST', body: input });
+      if (response.ok && data?.token) return await startSession(data);
+      return { ok: false, message: data?.message || 'Could not create your account' };
+    } catch (e: any) {
+      return { ok: false, message: e?.message || 'Could not connect to the server' };
+    }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, hasProfile, isLoading, login, loginWithGoogle, logout, refreshUser, setHasProfile }}>
+    <AuthContext.Provider value={{ token, user, hasProfile, isLoading, login, register, logout, setHasProfile }}>
       {children}
     </AuthContext.Provider>
   );

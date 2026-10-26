@@ -3,6 +3,8 @@ node_modules/
 
 # Build outputs
 backend/dist/
+admin/dist/
+dist/
 
 # Database
 *.db
@@ -17,6 +19,8 @@ Thumbs.db
 .idea/
 
 # Expo
+.expo/
+**/.expo/
 frontend/.expo/
 
 # Temp files

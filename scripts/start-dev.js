@@ -1,67 +1,117 @@
-const { spawn } = require('child_process');
-const net = require('net');
+const { spawn, exec } = require('child_process');
+const path = require('path');
 
-function isPortOpen(port) {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once('error', () => resolve(true));
-    server.once('listening', () => {
-      server.close(() => resolve(false));
-    });
-    server.listen(port, '127.0.0.1');
-  });
-}
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
-async function killProcessOnPort(port) {
-  const exec = require('child_process').exec;
+function killProcessOnPort(port) {
   return new Promise((resolve) => {
     exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
       if (!stdout) return resolve();
       const lines = stdout.split(/\r?\n/).filter(Boolean);
-      const pidLine = lines.find((line) => line.includes('LISTENING'));
-      if (!pidLine) return resolve();
-      const pid = pidLine.trim().split(/\s+/).pop();
-      if (pid && pid !== '0') {
-        exec(`taskkill /F /PID ${pid}`, () => resolve());
-      } else {
-        resolve();
+      const listeningLines = lines.filter((line) => line.includes('LISTENING'));
+      if (listeningLines.length === 0) return resolve();
+
+      const pids = [...new Set(
+        listeningLines
+          .map((line) => line.trim().split(/\s+/).pop())
+          .filter((pid) => pid && pid !== '0')
+      )];
+
+      if (pids.length === 0) return resolve();
+
+      console.log(`  Cleaning port :${port} (PID: ${pids.join(', ')})...`);
+      let remaining = pids.length;
+      for (const pid of pids) {
+        exec(`taskkill /F /T /PID ${pid}`, () => {
+          remaining--;
+          if (remaining <= 0) resolve();
+        });
       }
     });
   });
 }
 
 async function main() {
-  const backendPort = 5000;
-  const frontendPort = 8081;
+  console.log('\n============================================================');
+  console.log('🚀 RoomSync — Starting All Services in One Command');
+  console.log('============================================================');
+  console.log('Checking and freeing ports (3000, 5000, 5173, 8081)...');
 
-  if (await isPortOpen(backendPort)) {
-    await killProcessOnPort(backendPort);
+  const ports = [3000, 5000, 5173, 8081];
+  for (const port of ports) {
+    await killProcessOnPort(port);
   }
-  if (await isPortOpen(frontendPort)) {
-    await killProcessOnPort(frontendPort);
+
+  // Small delay to allow Windows to fully release socket handles
+  await new Promise((r) => setTimeout(r, 600));
+
+  console.log('\nLaunching sub-projects:');
+  console.log('  ➜  [Backend API]       http://localhost:3000');
+  console.log('  ➜  [Admin Dashboard]   http://localhost:5173');
+  console.log('  ➜  [Frontend Mobile]   http://localhost:8081');
+  console.log('  ➜  [Web Preview]       http://localhost:5000');
+  console.log('------------------------------------------------------------');
+  console.log('🔑 Demo Login Account:');
+  console.log('   Email:    ava.carter@university.edu');
+  console.log('   Password: 123456');
+  console.log('============================================================\n');
+
+  const children = [];
+
+  function spawnProcess(name, args, cwd) {
+    const proc = spawn('npm', args, {
+      cwd,
+      shell: true,
+      stdio: 'inherit',
+      env: { ...process.env, FORCE_COLOR: 'true' }
+    });
+
+    children.push({ name, proc });
+
+    proc.on('exit', (code) => {
+      if (code && code !== 0) {
+        console.log(`\n[${name}] exited with code ${code}`);
+      }
+    });
+
+    return proc;
   }
 
-  const backend = spawn('npm', ['--prefix', 'backend', 'run', 'dev'], {
-    cwd: process.cwd(),
-    shell: true,
-    stdio: 'inherit'
-  });
+  // 1. Backend (Express + SQLite + Socket.IO)
+  spawnProcess('Backend', ['--prefix', path.join(PROJECT_ROOT, 'backend'), 'run', 'dev'], PROJECT_ROOT);
 
-  const frontend = spawn('npm', ['--prefix', 'frontend', 'run', 'start', '--', '--clear'], {
-    cwd: process.cwd(),
-    shell: true,
-    stdio: 'inherit'
-  });
+  // 2. Admin (Vite + React)
+  spawnProcess('Admin', ['--prefix', path.join(PROJECT_ROOT, 'admin'), 'run', 'dev'], PROJECT_ROOT);
 
-  backend.on('exit', (code) => {
-    if (code !== 0) frontend.kill();
-    process.exit(code || 0);
-  });
+  // 3. Frontend (React Native + Expo Router)
+  spawnProcess('Frontend', ['--prefix', path.join(PROJECT_ROOT, 'frontend'), 'run', 'start', '--', '--clear'], PROJECT_ROOT);
 
-  frontend.on('exit', (code) => {
-    backend.kill();
-    process.exit(code || 0);
-  });
+  // 4. Web Preview (Serve preview on port 5000)
+  spawnProcess('Web Preview', ['--prefix', PROJECT_ROOT, 'run', 'preview'], PROJECT_ROOT);
+
+  let isCleaningUp = false;
+  function cleanup() {
+    if (isCleaningUp) return;
+    isCleaningUp = true;
+    console.log('\n🛑 Shutting down all services...');
+    for (const { name, proc } of children) {
+      try {
+        if (proc.pid) {
+          exec(`taskkill /F /T /PID ${proc.pid}`);
+        }
+      } catch (e) {}
+    }
+    process.exit(0);
+  }
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+
+  // Keep event loop alive while child processes are running
+  setInterval(() => {}, 10000);
 }
 
-main();
+main().catch((err) => {
+  console.error('Failed to start development servers:', err);
+  process.exit(1);
+});

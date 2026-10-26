@@ -1,67 +1,81 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/AuthContext';
+import { Theme } from '../src/theme';
 
 function RootNavigator() {
-  const { token, hasProfile, isLoading } = useAuth();
+  const { token, user, hasProfile, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
-    const inLoginPage = segments[0] === 'login' as any;
-    const inOnboarding = segments[0] === 'onboarding';
-    const isIndex = (segments.length as number) === 0 || segments[0] === undefined;
+    const first = segments[0] as string | undefined;
+    const inLogin = first === 'login';
+    const inOnboarding = first === 'onboarding';
+    const inAdmin = first === 'admin';
+    const inTabs = first === '(tabs)';
 
-    if (!token && inAuthGroup) {
-      // Not logged in but trying to access protected tab screens — redirect to login
-      router.replace('/login');
-    } else if (token) {
-      if (!hasProfile) {
-        // Logged in but has no profile — must do onboarding
-        if (!inOnboarding) {
-          router.replace('/onboarding');
-        }
-      } else {
-        // Logged in and has profile
-        if (inLoginPage || isIndex || inOnboarding) {
-          router.replace('/(tabs)');
-        }
-      }
+    if (!token) {
+      if (!inLogin) router.replace('/login');
+      return;
     }
-  }, [token, hasProfile, isLoading, segments]);
+
+    // Role-based routing
+    if (user?.role === 'ADMIN') {
+      // If admin lands on login, onboarding, or root index, send to admin console
+      if (inLogin || inOnboarding || first === undefined) {
+        router.replace('/admin' as any);
+      }
+      return;
+    }
+
+    // Regular student routing
+    if (inAdmin) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    if (!hasProfile) {
+      if (!inOnboarding) router.replace('/onboarding');
+      return;
+    }
+
+    if (inLogin || inOnboarding || first === undefined) {
+      router.replace('/(tabs)');
+    }
+  }, [token, user, hasProfile, isLoading, segments]);
 
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#2E7D32" />
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <Stack>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="admin" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <SafeAreaProvider>
+      <AuthProvider>
         <RootNavigator />
-      </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

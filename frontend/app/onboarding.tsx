@@ -1,17 +1,18 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, Dimensions, Animated, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { ArrowRight, Moon, Zap, Wind, Trash2, BookOpen, Users, Thermometer, User, CheckCircle2 } from 'lucide-react-native';
+import { ArrowRight, Moon, Sun, Volume2, Sparkles, BookOpen, User, Users, CheckCircle2, CigaretteOff, Cigarette } from 'lucide-react-native';
 import { Theme } from '../src/theme';
-
-import { TextInput, ActivityIndicator, Alert } from 'react-native';
 import { apiRequest } from '../src/api';
-
 import { useAuth } from '../src/AuthContext';
 
-const { width } = Dimensions.get('window');
+const BroomIcon = ({ size, color }: { size: number; color: string }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: size - 4, color }}>🧹</Text>
+  </View>
+);
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function OnboardingScreen() {
     noiseTolerance: 'MEDIUM',
     smoking: false,
     smokingTolerant: false,
-    cleanliness: 3,
+    cleanliness: 4,
     studyStyle: 'QUIET',
     tempPreference: 'MEDIUM',
     socialLevel: 'INTROVERT',
@@ -42,6 +43,7 @@ export default function OnboardingScreen() {
         });
 
         if (response.ok) {
+          Alert.alert('Profile Complete! 🎉', 'Welcome to RoomSync! We found some great roommate matches for you.');
           setHasProfile(true);
           router.replace('/(tabs)');
         } else {
@@ -59,7 +61,7 @@ export default function OnboardingScreen() {
     }
   };
 
-  const renderOption = (key: string, value: any, label: string, icon: any) => {
+  const renderOption = (key: string, value: any, label: string, sublabel: string, icon: any) => {
     const isSelected = (profile as any)[key] === value;
     return (
       <TouchableOpacity
@@ -68,14 +70,15 @@ export default function OnboardingScreen() {
         onPress={() => setProfile({ ...profile, [key]: value })}
       >
         <View style={[styles.iconWrapper, isSelected && styles.selectedIconWrapper]}>
-          {React.cloneElement(icon, { color: isSelected ? Theme.colors.primary : '#556b72' })}
+          {React.cloneElement(icon, { color: isSelected ? Theme.colors.primary : '#6B7280' })}
         </View>
         <View style={styles.roleTextContent}>
-          <Text style={styles.roleTitle}>{label}</Text>
+          <Text style={[styles.roleTitle, isSelected && styles.selectedRoleTitle]}>{label}</Text>
+          {sublabel ? <Text style={styles.roleSub}>{sublabel}</Text> : null}
         </View>
         <View style={styles.selector}>
           {isSelected ? (
-            <CheckCircle2 color={Theme.colors.primary} size={24} fill={Theme.colors.primary + '20'} />
+            <CheckCircle2 color={Theme.colors.primary} size={22} />
           ) : (
             <View style={styles.unselectedCircle} />
           )}
@@ -85,15 +88,19 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       
+      {/* Header with Step Indicator */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => step > 1 && setStep(step - 1)}>
-          <Text style={styles.skipText}>{step > 1 ? 'Back' : ''}</Text>
+          <Text style={styles.navText}>{step > 1 ? '← Back' : ''}</Text>
         </TouchableOpacity>
-        <View style={styles.progressContainer}>
-           <View style={[styles.progressBar, { width: `${(step / 4) * 100}%` }]} />
+        <View style={styles.progressSection}>
+          <Text style={styles.stepCount}>Step {step} of 4</Text>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: `${(step / 4) * 100}%` }]} />
+          </View>
         </View>
         <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
           <Text style={styles.skipText}>Skip</Text>
@@ -102,37 +109,42 @@ export default function OnboardingScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.heroSection}>
+          <View style={styles.sparkleBadge}>
+            <Sparkles size={14} color={Theme.colors.primary} />
+            <Text style={styles.sparkleText}>COMPATIBILITY SURVEY</Text>
+          </View>
           <Text style={styles.heroTitle}>
-            {step === 1 && "Sleep & Noise"}
-            {step === 2 && "Habits"}
-            {step === 3 && "Lifestyle"}
-            {step === 4 && "About You"}
+            {step === 1 && "Sleep & Sound 🌙"}
+            {step === 2 && "Living Habits 🧹"}
+            {step === 3 && "Study & Social 📚"}
+            {step === 4 && "About You ✨"}
           </Text>
           <Text style={styles.heroSubtitle}>
-            {step === 1 && "Tell us how you rest and focus."}
-            {step === 2 && "Cleanliness and smoking preferences."}
-            {step === 3 && "Your social and study environment."}
-            {step === 4 && "Final touch to your profile."}
+            {step === 1 && "Help us pair you with roommates who share your daily rhythm."}
+            {step === 2 && "Set expectations for cleanliness and smoke-free spaces."}
+            {step === 3 && "Let us know how you like to study and unwind."}
+            {step === 4 && "Add a short bio to introduce yourself to matches."}
           </Text>
         </View>
 
         <View style={styles.rolesContainer}>
           {step === 1 && (
             <>
-              <Text style={styles.sectionLabel}>Sleep Schedule</Text>
-              {renderOption('sleepSchedule', 'EARLY', 'Early Bird', <Moon size={24} />)}
-              {renderOption('sleepSchedule', 'LATE', 'Night Owl', <Zap size={24} />)}
+              <Text style={styles.sectionLabel}>SLEEP SCHEDULE</Text>
+              {renderOption('sleepSchedule', 'EARLY', 'Early Bird 🌅', 'Wake up early, asleep before 11 PM', <Sun size={22} />)}
+              {renderOption('sleepSchedule', 'LATE', 'Night Owl 🦉', 'Late night study & creative hours', <Moon size={22} />)}
               
-              <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Noise Tolerance</Text>
-              {renderOption('noiseTolerance', 'LOW', 'Quiet (Low)', <Wind size={24} />)}
-              {renderOption('noiseTolerance', 'MEDIUM', 'Moderate', <Users size={24} />)}
-              {renderOption('noiseTolerance', 'HIGH', 'High Energy', <Zap size={24} />)}
+              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>NOISE TOLERANCE</Text>
+              {renderOption('noiseTolerance', 'LOW', 'Quiet Zone 🤫', 'Prefers calm and silent environments', <Volume2 size={22} />)}
+              {renderOption('noiseTolerance', 'MEDIUM', 'Moderate 🎵', 'Okay with background music and podcasts', <Volume2 size={22} />)}
+              {renderOption('noiseTolerance', 'HIGH', 'Lively ⚡', 'Enjoys energetic and active dorm vibes', <Volume2 size={22} />)}
             </>
           )}
 
           {step === 2 && (
             <>
-              <Text style={styles.sectionLabel}>Cleanliness (1-5)</Text>
+              <Text style={styles.sectionLabel}>CLEANLINESS LEVEL (1-5)</Text>
+              <Text style={styles.subLabelHelp}>How tidy do you keep shared spaces?</Text>
               <View style={styles.numRow}>
                 {[1, 2, 3, 4, 5].map(num => (
                   <TouchableOpacity
@@ -145,41 +157,42 @@ export default function OnboardingScreen() {
                 ))}
               </View>
 
-              <Text style={[styles.sectionLabel, { marginTop: 30 }]}>Smoking Preference</Text>
-              {renderOption('smoking', true, 'I Smoke', <Wind size={24} />)}
-              {renderOption('smoking', false, 'Non-Smoker', <CheckCircle2 size={24} />)}
+              <Text style={[styles.sectionLabel, { marginTop: 28 }]}>SMOKING HABITS</Text>
+              {renderOption('smoking', false, 'Smoke-Free 🚭', 'Non-smoker', <CigaretteOff size={22} />)}
+              {renderOption('smoking', true, 'I Smoke 🚬', 'Occasional or regular smoker', <Cigarette size={22} />)}
               
-              <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Tolerant of Smoking?</Text>
-              {renderOption('smokingTolerant', true, 'Yes, I\'m Tolerant', <CheckCircle2 size={24} />)}
-              {renderOption('smokingTolerant', false, 'No, Smoke-Free only', <Trash2 size={24} />)}
+              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>TOLERANT OF SMOKERS?</Text>
+              {renderOption('smokingTolerant', true, 'Yes, Tolerant 👌', 'Okay sharing space with smokers', <CheckCircle2 size={22} />)}
+              {renderOption('smokingTolerant', false, 'Smoke-Free Only 🌿', 'Strictly smoke-free roommates', <CigaretteOff size={22} />)}
             </>
           )}
 
           {step === 3 && (
             <>
-              <Text style={styles.sectionLabel}>Study Style</Text>
-              {renderOption('studyStyle', 'QUIET', 'Quiet Library Style', <BookOpen size={24} />)}
-              {renderOption('studyStyle', 'MUSIC', 'With Music/Background', <Zap size={24} />)}
+              <Text style={styles.sectionLabel}>STUDY STYLE</Text>
+              {renderOption('studyStyle', 'QUIET', 'Silent Focus 📖', 'Library-level silence for studying', <BookOpen size={22} />)}
+              {renderOption('studyStyle', 'MUSIC', 'Background Tunes 🎧', 'Studies with lo-fi, podcasts, or music', <Sparkles size={22} />)}
               
-              <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Social Level</Text>
-              {renderOption('socialLevel', 'INTROVERT', 'Introvert (Private)', <User size={24} />)}
-              {renderOption('socialLevel', 'EXTROVERT', 'Extrovert (Social)', <Users size={24} />)}
+              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>SOCIAL LEVEL</Text>
+              {renderOption('socialLevel', 'INTROVERT', 'Introvert 🛋️', 'Values personal space & quiet downtime', <User size={22} />)}
+              {renderOption('socialLevel', 'EXTROVERT', 'Extrovert 🎉', 'Loves social gatherings & hosting friends', <Users size={22} />)}
             </>
           )}
 
           {step === 4 && (
             <View style={styles.bioContainer}>
-               <Text style={styles.sectionLabel}>Short Bio</Text>
-               <View style={[styles.roleCard, { paddingVertical: 12 }]}>
-                 <TextInput
-                   style={{ flex: 1, fontSize: 16, color: '#111', minHeight: 80 }}
-                   multiline
-                   placeholder="Write a few words about yourself..."
-                   placeholderTextColor="#999"
-                   value={profile.bio}
-                   onChangeText={(text) => setProfile({ ...profile, bio: text })}
-                 />
-               </View>
+              <Text style={styles.sectionLabel}>SHORT BIO</Text>
+              <Text style={styles.subLabelHelp}>Tell prospective roommates about your major, hobbies, and dorm vibes.</Text>
+              <View style={styles.bioInputCard}>
+                <TextInput
+                  style={styles.bioTextInput}
+                  multiline
+                  placeholder="e.g. Computer Science sophomore who loves coffee, weekend hikes, and tidy common spaces..."
+                  placeholderTextColor="#9CA3AF"
+                  value={profile.bio}
+                  onChangeText={(text) => setProfile({ ...profile, bio: text })}
+                />
+              </View>
             </View>
           )}
         </View>
@@ -193,8 +206,8 @@ export default function OnboardingScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Text style={styles.continueText}>{step === 4 ? 'Complete Profile' : 'Next Step'}</Text>
-              <ArrowRight color="#fff" size={20} style={{ marginLeft: 10 }} />
+              <Text style={styles.continueText}>{step === 4 ? 'Find My Matches 🚀' : 'Continue'}</Text>
+              <ArrowRight color="#fff" size={20} style={{ marginLeft: 8 }} />
             </>
           )}
         </TouchableOpacity>
@@ -205,33 +218,41 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F9F7' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Theme.spacing.lg, height: 60 },
-  progressContainer: { flex: 1, height: 6, backgroundColor: '#E0E7E0', borderRadius: 3, marginHorizontal: 20 },
+  container: { flex: 1, backgroundColor: '#F8F9FD' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 64, backgroundColor: '#fff', borderBottomWidth: 0.5, borderBottomColor: '#E5E5EA' },
+  navText: { color: Theme.colors.primary, fontWeight: '700', fontSize: 15, width: 60 },
+  progressSection: { alignItems: 'center', flex: 1 },
+  stepCount: { fontSize: 11, fontWeight: '800', color: '#6B7280', marginBottom: 4, letterSpacing: 0.5 },
+  progressContainer: { width: 120, height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' },
   progressBar: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
-  skipText: { color: Theme.colors.primary, fontWeight: 'bold', fontSize: 16, width: 44 },
+  skipText: { color: '#8E8E93', fontWeight: '600', fontSize: 14, width: 60, textAlign: 'right' },
   scrollContent: { paddingBottom: 20 },
-  heroSection: { alignItems: 'center', paddingVertical: 20, paddingHorizontal: 40 },
-  heroTitle: { fontSize: 32, fontWeight: '800', color: '#0a1a1f', textAlign: 'center', marginBottom: 10 },
-  heroSubtitle: { fontSize: 16, color: '#556b72', textAlign: 'center', lineHeight: 22 },
-  rolesContainer: { paddingHorizontal: Theme.spacing.lg, gap: 12 },
-  sectionLabel: { fontSize: 14, fontWeight: '700', color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  roleCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 24, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, marginBottom: 8 },
-  selectedCard: { borderColor: Theme.colors.primary, backgroundColor: '#F0F9F1' },
-  iconWrapper: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F0F9F1', alignItems: 'center', justifyContent: 'center' },
-  selectedIconWrapper: { backgroundColor: Theme.colors.primary + '20' },
-  roleTextContent: { flex: 1, marginLeft: 16 },
-  roleTitle: { fontSize: 17, fontWeight: '700', color: '#0a1a1f' },
-  selector: { width: 24, height: 24 },
-  unselectedCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D9D1' },
-  numRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  numCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#eee' },
+  heroSection: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 28 },
+  sparkleBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, gap: 6, marginBottom: 12 },
+  sparkleText: { fontSize: 11, fontWeight: '800', color: Theme.colors.primary, letterSpacing: 0.8 },
+  heroTitle: { fontSize: 26, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 8 },
+  heroSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  rolesContainer: { paddingHorizontal: 20 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: '#6B7280', marginBottom: 8, letterSpacing: 0.8 },
+  subLabelHelp: { fontSize: 13, color: '#9CA3AF', marginBottom: 12 },
+  roleCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 18, padding: 16, alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', marginBottom: 10, ...Theme.shadows.subtle },
+  selectedCard: { borderColor: Theme.colors.primary, backgroundColor: '#EEF2FF' },
+  iconWrapper: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  selectedIconWrapper: { backgroundColor: '#fff' },
+  roleTextContent: { flex: 1, marginLeft: 14 },
+  roleTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  selectedRoleTitle: { color: Theme.colors.primary },
+  roleSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  selector: { width: 22, height: 22, justifyContent: 'center', alignItems: 'center' },
+  unselectedCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#D1D5DB' },
+  numRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  numCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', ...Theme.shadows.subtle },
   selectedNumCircle: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  numText: { fontSize: 18, fontWeight: 'bold', color: '#666' },
+  numText: { fontSize: 18, fontWeight: '800', color: '#4B5563' },
   selectedNumText: { color: '#fff' },
-  bioContainer: { minHeight: 200 },
-  bioWrapper: { flex: 1, paddingVertical: 10 },
-  bioPlaceholder: { color: '#999', fontSize: 16 },
-  continueButton: { backgroundColor: Theme.colors.primary, marginHorizontal: Theme.spacing.lg, marginTop: 30, height: 60, borderRadius: Theme.roundness.full, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 4 },
-  continueText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  bioContainer: { minHeight: 180 },
+  bioInputCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 14, minHeight: 120, ...Theme.shadows.subtle },
+  bioTextInput: { fontSize: 15, color: '#111827', lineHeight: 22, textAlignVertical: 'top', minHeight: 100 },
+  continueButton: { backgroundColor: Theme.colors.primary, marginHorizontal: 20, marginTop: 28, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', ...Theme.shadows.floating },
+  continueText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

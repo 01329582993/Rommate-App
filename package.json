@@ -2,9 +2,16 @@
   "name": "rommate-app",
   "private": true,
   "scripts": {
+    "start": "node scripts/start-dev.js",
     "dev": "node scripts/start-dev.js",
+    "all": "node scripts/start-dev.js",
     "backend": "npm --prefix backend run dev",
-    "frontend": "npm --prefix frontend run start -- --clear"
+    "frontend": "npm --prefix frontend run start -- --clear",
+    "admin": "npm --prefix admin run dev",
+    "web": "npx --yes serve -p 5000 .",
+    "preview": "npx --yes serve -p 5000 preview",
+    "tunnel": "npm --prefix frontend run tunnel",
+    "build:apk": "npm --prefix frontend run build:apk"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

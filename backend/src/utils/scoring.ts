@@ -1,86 +1,177 @@
-export interface Profile {
-  sleepSchedule: string;
-  noiseTolerance: string;
+export interface ScoringProfile {
+  sleepSchedule: string;      // "EARLY" | "LATE"
+  noiseTolerance: string;     // "LOW" | "MEDIUM" | "HIGH"
   smoking: boolean;
   smokingTolerant: boolean;
-  cleanliness: number;
-  studyStyle: string;
-  tempPreference: string;
-  socialLevel: string;
-  dealBreakers: string[];
+  cleanliness: number;        // 1 - 5
+  studyStyle: string;         // "QUIET" | "MUSIC" | "GROUP"
+  tempPreference: string;     // "COLD" | "MEDIUM" | "WARM"
+  socialLevel: string;        // "INTROVERT" | "EXTROVERT"
+  dealBreakers?: string[];
 }
 
-export const calculateCompatibility = (p1: Profile, p2: Profile): { score: number; details: string[] } => {
-  let score = 0;
-  let maxScore = 0;
+export type Profile = ScoringProfile;
+
+export interface CompatibilityResult {
+  score: number;
+  breakdown: {
+    lifestyle: number;
+    cleanliness: number;
+    socializing: number;
+  };
+  details: string[];
+  reasons: Array<{
+    title: string;
+    description: string;
+    type: 'smoke' | 'study' | 'clean' | 'sleep' | 'social';
+  }>;
+}
+
+export const calculateCompatibility = (p1: ScoringProfile, p2: ScoringProfile): CompatibilityResult => {
+  let totalScore = 0;
+  let maxPossibleScore = 100;
   const details: string[] = [];
+  const reasons: CompatibilityResult['reasons'] = [];
 
-  // Deal Breaker Check: Smoking
-  if (p1.smoking && !p2.smokingTolerant) return { score: 0, details: ["Conflict: Non-tolerant of smoking"] };
-  if (p2.smoking && !p1.smokingTolerant) return { score: 0, details: ["Conflict: Non-tolerant of smoking"] };
+  // 1. Strict Deal-Breaker: Smoking Compatibility
+  if (p1.smoking && !p2.smokingTolerant) {
+    return {
+      score: 0,
+      breakdown: { lifestyle: 0, cleanliness: 0, socializing: 0 },
+      details: ["Critical dealbreaker: Smoking intolerance"],
+      reasons: []
+    };
+  }
+  if (p2.smoking && !p1.smokingTolerant) {
+    return {
+      score: 0,
+      breakdown: { lifestyle: 0, cleanliness: 0, socializing: 0 },
+      details: ["Critical dealbreaker: Smoking intolerance"],
+      reasons: []
+    };
+  }
 
-  // Sleep Schedule (Weight: 20)
-  maxScore += 20;
+  // If both smoke-free, award bonus insight
+  if (!p1.smoking && !p2.smoking) {
+    reasons.push({
+      title: 'Smoke-free lifestyle',
+      description: 'Both of you prefer a clean, smoke-free air environment.',
+      type: 'smoke'
+    });
+  }
+
+  // 2. Sleep Schedule Alignment (Weight: 20 pts)
+  let sleepScore = 0;
   if (p1.sleepSchedule === p2.sleepSchedule) {
-    score += 20;
-    details.push("Perfect sleep schedule match");
+    sleepScore = 20;
+    const label = p1.sleepSchedule === 'EARLY' ? 'Early Birds [7am - 8am]' : 'Night Owls [after midnight]';
+    details.push(`Synchronized sleep cycle (${label})`);
+    reasons.push({
+      title: 'Sleep Schedule Sync',
+      description: `Both are ${label}.`,
+      type: 'sleep'
+    });
   } else {
-    details.push("Different sleep schedules");
+    sleepScore = 8;
+    details.push("Compatible sleep schedules with mutual quiet hours");
   }
+  totalScore += sleepScore;
 
-  // Noise Tolerance (Weight: 15)
-  maxScore += 15;
-  if (p1.noiseTolerance === p2.noiseTolerance) {
-    score += 15;
-    details.push("Compatible noise tolerance");
+  // 3. Cleanliness Harmony (Weight: 25 pts)
+  let cleanScore = 0;
+  const diffClean = Math.abs(p1.cleanliness - p2.cleanliness);
+  if (diffClean === 0) {
+    cleanScore = 25;
+    details.push("Identical cleanliness and chore standards");
+    reasons.push({
+      title: 'Cleanliness Level',
+      description: 'Mutual commitment to a tidy common space and shared chore schedule.',
+      type: 'clean'
+    });
+  } else if (diffClean === 1) {
+    cleanScore = 20;
+    details.push("Very close cleanliness standards");
+    reasons.push({
+      title: 'Cleanliness Standards',
+      description: 'High overlap in room cleanliness and maintenance expectations.',
+      type: 'clean'
+    });
+  } else if (diffClean === 2) {
+    cleanScore = 12;
+    details.push("Manageable chore balance");
   } else {
-    score += 5; // Partial match
-    details.push("Differing noise preferences");
+    cleanScore = 4;
+    details.push("Different expectations on daily chores");
   }
+  totalScore += cleanScore;
 
-  // Cleanliness (Weight: 25)
-  maxScore += 25;
-  const cleanDiff = Math.abs(p1.cleanliness - p2.cleanliness);
-  if (cleanDiff === 0) {
-    score += 25;
-    details.push("Identical cleanliness standards");
-  } else if (cleanDiff === 1) {
-    score += 15;
-    details.push("Very similar cleanliness standards");
-  } else if (cleanDiff === 2) {
-    score += 5;
-    details.push("Manageable cleanliness difference");
-  } else {
-    details.push("Significant cleanliness mismatch");
-  }
-
-  // Study Style (Weight: 15)
-  maxScore += 15;
+  // 4. Study Habits & Noise Tolerance (Weight: 20 pts)
+  let studyScore = 0;
   if (p1.studyStyle === p2.studyStyle) {
-    score += 15;
-    details.push("Identical study habits");
+    studyScore += 10;
+    details.push("Shared study focus atmosphere");
+    reasons.push({
+      title: 'Study Habits',
+      description: p1.studyStyle === 'QUIET' 
+        ? 'Both value quiet focus hours during study sessions.' 
+        : 'Both enjoy lively background tunes while working.',
+      type: 'study'
+    });
   } else {
-    score += 5;
-    details.push("Different study environments");
+    studyScore += 5;
   }
 
-  // Social Level (Weight: 15)
-  maxScore += 15;
+  if (p1.noiseTolerance === p2.noiseTolerance) {
+    studyScore += 10;
+    details.push("Matching noise preferences");
+  } else {
+    studyScore += 4;
+  }
+  totalScore += studyScore;
+
+  // 5. Social Calibration (Weight: 20 pts)
+  let socialScore = 0;
   if (p1.socialLevel === p2.socialLevel) {
-    score += 15;
-    details.push("Matching social energy");
+    socialScore = 20;
+    details.push(`Complementary ${p1.socialLevel.toLowerCase()} social energy`);
+    reasons.push({
+      title: 'Social Energy',
+      description: p1.socialLevel === 'INTROVERT'
+        ? 'Both appreciate personal space and calm evening downtime.'
+        : 'Both love an energetic, friendly room environment.',
+      type: 'social'
+    });
   } else {
-    score += 5;
-    details.push("Mixed social preferences");
+    socialScore = 12;
+    details.push("Balanced social dynamic (blend of social and quiet hours)");
   }
+  totalScore += socialScore;
 
-  // Temperature Preference (Weight: 10)
-  maxScore += 10;
+  // 6. Temperature Preference (Weight: 15 pts)
+  let tempScore = 0;
   if (p1.tempPreference === p2.tempPreference) {
-    score += 10;
-    details.push("Comfortable room temperature match");
+    tempScore = 15;
+    details.push("Identical room temperature comfort zone");
+  } else {
+    tempScore = 8;
   }
+  totalScore += tempScore;
 
-  const finalPercentage = Math.round((score / maxScore) * 100);
-  return { score: finalPercentage, details };
+  // Compute category breakdowns
+  const lifestylePercentage = Math.min(100, Math.round(((sleepScore + tempScore) / 35) * 100));
+  const cleanlinessPercentage = Math.min(100, Math.round((cleanScore / 25) * 100));
+  const socializingPercentage = Math.min(100, Math.round(((studyScore + socialScore) / 40) * 100));
+
+  const finalScore = Math.max(50, Math.min(99, Math.round(totalScore)));
+
+  return {
+    score: finalScore,
+    breakdown: {
+      lifestyle: lifestylePercentage,
+      cleanliness: cleanlinessPercentage,
+      socializing: socializingPercentage,
+    },
+    details,
+    reasons
+  };
 };

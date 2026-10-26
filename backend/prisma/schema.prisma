@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -26,6 +26,8 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   likesSent     Like[]   @relation("LikesSent")
   likesReceived Like[]   @relation("LikesReceived")
+  reviewsWritten  Review[] @relation("ReviewsWritten")
+  reviewsReceived Review[] @relation("ReviewsReceived")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -88,4 +90,24 @@ model Like {
   to          User     @relation("LikesReceived", fields: [toId], references: [id])
   isMutual    Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@unique([fromId, toId])
+}
+
+// A rating (1-5) and optional comment one user leaves about another.
+// One review per (reviewer, reviewee) pair - writing again edits the existing one.
+model Review {
+  id          String   @id @default(cuid())
+  reviewerId  String
+  reviewer    User     @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
+  revieweeId  String
+  reviewee    User     @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+  rating      Int      // 1-5
+  comment     String?
+  isRoommate  Boolean  @default(false) // true when reviewer and reviewee shared a group at the time of writing
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([reviewerId, revieweeId])
+  @@index([revieweeId])
 }
