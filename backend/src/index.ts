@@ -11,6 +11,7 @@ import groupRoutes from './routes/group.routes';
 import messageRoutes from './routes/message.routes';
 import reviewRoutes from './routes/review.routes';
 import userRoutes from './routes/user.routes';
+import aiMatchRoutes from './routes/aiMatch.routes';
 import prisma from './utils/prisma';
 
 dotenv.config();
@@ -67,6 +68,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/match/ai', aiMatchRoutes);
 
 // Global 404 Handler
 app.use((req: Request, res: Response) => {
