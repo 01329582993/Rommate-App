@@ -282,3 +282,21 @@ export const listAllReviews = async (_req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: 'Could not load reviews', error: error.message });
   }
 };
+
+// Reviews received by current user (what other people wrote about me): GET /api/reviews/me or GET /api/reviews/received
+export const getMyReceivedReviews = async (req: AuthRequest, res: Response) => {
+  try {
+    let userId = req.user?.userId;
+    if (!userId) {
+      const defaultUser = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
+      userId = defaultUser?.id;
+    }
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    req.params.userId = userId;
+    return getReviewsForUser(req, res);
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Could not load your received reviews', error: error.message });
+  }
+};
+

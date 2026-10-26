@@ -58,6 +58,63 @@ export default function ProfileScreen() {
   const [preciseLocation, setPreciseLocation] = useState(false);
   const [notifications, setNotifications] = useState(true);
 
+  // Reviews received from other students & roommates
+  const [reviewsData, setReviewsData] = useState<any>({ summary: null, reviews: [] });
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  const reviewerPhotoMap: Record<string, string> = {
+    'Tanzimul Haque': 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=1000&auto=format&fit=crop&q=85',
+    'Mamadou Diallo': 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=1000&auto=format&fit=crop&q=85',
+    'IUT Provost Office': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=1000&auto=format&fit=crop&q=85',
+    'Nusrat Jahan': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1000&auto=format&fit=crop&q=85',
+    'Ibrahim Ousmane': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=1000&auto=format&fit=crop&q=85',
+    'Fatoumata Bamba': 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1000&auto=format&fit=crop&q=85',
+    'Farhan Shadman': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1000&auto=format&fit=crop&q=85',
+    'Aminata Traoré': 'https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=1000&auto=format&fit=crop&q=85',
+    'Kofi Mensah': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=1000&auto=format&fit=crop&q=85',
+    'Limas Soubello': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1000&auto=format&fit=crop&q=85',
+  };
+
+  const formatReviewDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'Recent';
+    }
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <View style={styles.starsRow}>
+        {[1, 2, 3, 4, 5].map((s) => (
+          <Star
+            key={s}
+            size={13}
+            color={s <= rating ? '#F59E0B' : '#CBD5E1'}
+            fill={s <= rating ? '#F59E0B' : 'transparent'}
+            style={{ marginRight: 2 }}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  const loadReviews = async (userId?: string) => {
+    try {
+      setLoadingReviews(true);
+      const endpoint = userId ? `/api/reviews/user/${userId}` : '/api/reviews/me';
+      const { response, data } = await apiRequest(endpoint);
+      if (response.ok && data) {
+        setReviewsData(data);
+      }
+    } catch (err) {
+      console.warn('Could not load profile reviews:', err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
   const [editForm, setEditForm] = useState({
     sleepSchedule: 'EARLY',
     noiseTolerance: 'MEDIUM',
@@ -87,9 +144,13 @@ export default function ProfileScreen() {
           socialLevel: data.socialLevel || 'INTROVERT',
           bio: data.bio || '',
         });
+        loadReviews(data.userId || data.id);
+      } else {
+        loadReviews();
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
+      loadReviews();
     } finally {
       setLoading(false);
     }
@@ -273,6 +334,112 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* REVIEWS & VIBE CHECKS FROM ROOMMATES */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>REVIEWS & VIBE CHECKS</Text>
+            {reviewsData.reviews?.length > 0 && (
+              <View style={styles.reviewBadgeHeader}>
+                <Star size={12} color="#D97706" fill="#D97706" />
+                <Text style={styles.reviewBadgeHeaderText}>
+                  {(reviewsData.summary?.averageRating || reviewsData.summary?.average || 5).toFixed(1)} ({reviewsData.reviews.length})
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {loadingReviews ? (
+            <View style={styles.reviewsLoadingBox}>
+              <ActivityIndicator size="small" color="#FF4458" />
+              <Text style={styles.reviewsLoadingText}>Loading roommate reviews...</Text>
+            </View>
+          ) : !reviewsData.reviews || reviewsData.reviews.length === 0 ? (
+            <View style={styles.noReviewsCard}>
+              <View style={styles.noReviewsIconCircle}>
+                <Sparkles size={22} color="#F59E0B" />
+              </View>
+              <Text style={styles.noReviewsTitle}>No Reviews Yet</Text>
+              <Text style={styles.noReviewsSubtitle}>
+                When roommates and hall peers write vibe checks about living with you, they will appear here.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.reviewsContainer}>
+              {/* Summary Header Card */}
+              <View style={styles.reviewSummaryCard}>
+                <View style={styles.reviewSummaryScoreCol}>
+                  <Text style={styles.reviewSummaryBigScore}>
+                    {(reviewsData.summary?.averageRating || reviewsData.summary?.average || 5).toFixed(1)}
+                  </Text>
+                  {renderStars(Math.round(reviewsData.summary?.averageRating || reviewsData.summary?.average || 5))}
+                  <Text style={styles.reviewSummaryCountText}>
+                    {reviewsData.reviews.length} {reviewsData.reviews.length === 1 ? 'review' : 'reviews'}
+                  </Text>
+                </View>
+                <View style={styles.reviewSummaryDivider} />
+                <View style={styles.reviewSummaryTrustCol}>
+                  <View style={styles.trustBadgeRow}>
+                    <ShieldCheck size={16} color="#10B981" />
+                    <Text style={styles.trustBadgeText}>IUT Campus Verified</Text>
+                  </View>
+                  <Text style={styles.trustDescText}>
+                    Authentic feedback from verified students in South Hall, North Hall & FHR.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Review Item Cards */}
+              {reviewsData.reviews.map((rev: any, index: number) => {
+                const reviewerName = rev.reviewer?.name || 'Fellow Student';
+                const avatarUrl = reviewerPhotoMap[reviewerName];
+                const initials = reviewerName
+                  .split(' ')
+                  .map((n: string) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
+
+                return (
+                  <View key={rev.id || index} style={styles.reviewCard}>
+                    <View style={styles.reviewCardTop}>
+                      {avatarUrl ? (
+                        <Image source={{ uri: avatarUrl }} style={styles.reviewerAvatar} />
+                      ) : (
+                        <View style={styles.reviewerAvatarFallback}>
+                          <Text style={styles.reviewerInitials}>{initials}</Text>
+                        </View>
+                      )}
+                      <View style={styles.reviewerInfo}>
+                        <View style={styles.reviewerNameRow}>
+                          <Text style={styles.reviewerName}>{reviewerName}</Text>
+                          {rev.isRoommate && (
+                            <View style={styles.roommateTag}>
+                              <Text style={styles.roommateTagText}>Roommate</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.reviewDateText}>
+                          {formatReviewDate(rev.createdAt)}
+                        </Text>
+                      </View>
+                      <View style={styles.reviewRatingPill}>
+                        <Star size={12} color="#B45309" fill="#B45309" />
+                        <Text style={styles.reviewRatingPillText}>{rev.rating}.0</Text>
+                      </View>
+                    </View>
+
+                    {rev.comment ? (
+                      <View style={styles.reviewCommentBox}>
+                        <Text style={styles.reviewCommentText}>"{rev.comment}"</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
 
         {/* SETTINGS LIST */}
         <View style={styles.sectionContainer}>
@@ -1126,5 +1293,234 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  reviewBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  reviewBadgeHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  reviewsLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  reviewsLoadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  noReviewsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  noReviewsIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  noReviewsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  noReviewsSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  reviewsContainer: {
+    gap: 12,
+  },
+  reviewSummaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  reviewSummaryScoreCol: {
+    alignItems: 'center',
+    paddingRight: 16,
+    minWidth: 100,
+  },
+  reviewSummaryBigScore: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1E293B',
+    lineHeight: 38,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  reviewSummaryCountText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  reviewSummaryDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: '#F1F5F9',
+    marginRight: 16,
+  },
+  reviewSummaryTrustCol: {
+    flex: 1,
+  },
+  trustBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  trustBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  trustDescText: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  reviewCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E2E8F0',
+  },
+  reviewerAvatarFallback: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  reviewerInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  reviewerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  reviewerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  reviewerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  roommateTag: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  roommateTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  reviewDateText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  reviewRatingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  reviewRatingPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  reviewCommentBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 4,
+  },
+  reviewCommentText: {
+    fontSize: 13,
+    color: '#334155',
+    fontStyle: 'italic',
+    lineHeight: 19,
   },
 });

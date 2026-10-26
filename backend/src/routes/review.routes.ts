@@ -4,6 +4,7 @@ import {
   createReview,
   voteHelpful,
   getMyWrittenReviews,
+  getMyReceivedReviews,
   deleteReview,
   listAllReviews,
 } from '../controllers/review.controller';
@@ -13,6 +14,8 @@ const router = Router();
 
 // Current user's reviews (must precede parameterized routes)
 router.get('/mine', authenticateJWT, getMyWrittenReviews);
+router.get('/me', authenticateJWT, getMyReceivedReviews);
+router.get('/received', authenticateJWT, getMyReceivedReviews);
 
 // Helpful vote on a review
 router.post('/helpful/:reviewId', authenticateJWT, voteHelpful);

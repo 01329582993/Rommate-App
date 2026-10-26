@@ -39,6 +39,10 @@ export function getReviewsIWrote() {
   return apiRequest('/api/reviews/mine');
 }
 
+export function getMyReceivedReviews() {
+  return apiRequest('/api/reviews/me');
+}
+
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
