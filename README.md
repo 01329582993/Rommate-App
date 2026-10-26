@@ -43,19 +43,72 @@ RoomSync is built with a scalable, modern full-stack architecture:
 
 ---
 
-## 🛠️ Matching Logic
+## 🧮 Compatibility Scoring Engine
 
-The heartbeat of RoomSync is its scoring algorithm:
-1.  **Pairwise Scoring:** Compares individual attributes (Cleanliness, Noise, etc.).
-2.  **Weighted Importance:** Users can prioritize what matters most to them.
-3.  **Strict Deal Breakers:** Instantly filters out non-compatible matches (e.g., smoking).
-4.  **Group Optimization:** Aggregates scores to ensure harmony in 3-4 person suites.
+The heartbeat of Rommify is its weighted scoring algorithm located in `backend/src/utils/scoring.ts`.
+
+### Scoring Breakdown
+
+| Category | Weight | What It Measures |
+|---|---|---|
+| 🛏️ Sleep Schedule | **20 pts** | Early bird vs night owl alignment |
+| 🧹 Cleanliness | **25 pts** | Chore expectations (scale 1–5) |
+| 📚 Study Style | **10 pts** | Quiet / Music / Group study preference |
+| 🔊 Noise Tolerance | **10 pts** | LOW / MEDIUM / HIGH noise comfort |
+| 👥 Social Level | **20 pts** | Introvert / Ambivert / Extrovert |
+| 🌡️ Temperature | **15 pts** | Room temp comfort (Cold / Medium / Warm) |
+| **Total** | **100 pts** | Final score capped at 99% |
+
+### Score Tiers
+
+| Score | Tier | Meaning |
+|---|---|---|
+| 92–99% | 🔥 Perfect Match | Exceptional lifestyle alignment |
+| 80–91% | ⭐ Great Match | Strong compatibility |
+| 65–79% | 👍 Good Match | Works with communication |
+| 50–64% | 🤔 Possible Match | Needs clear boundaries |
+| 0% | ❌ Not Compatible | Deal-breaker triggered |
+
+### Deal Breakers
+A score of **0%** is returned immediately if:
+- One roommate **smokes** and the other is **not smoke-tolerant**
+
+### Utility Files
+- `backend/src/utils/scoring.ts` — Core scoring engine
+- `backend/src/utils/scoreLabel.ts` — Converts scores to UI tier labels
 
 ---
 
 ## 🚀 Getting Started
 
-*(Coming soon: Installation and setup instructions)*
+### Prerequisites
+- Node.js 18+
+- MongoDB (local or Atlas)
+- Expo Go app (for mobile testing)
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/01329582993/Rommate-App.git
+cd Rommate-App
+
+# Install backend dependencies
+cd backend
+npm install
+
+# Install frontend dependencies
+cd ../frontend
+npm install
+```
+
+### Running the App
+```bash
+# Start backend (from /backend)
+npm run dev
+
+# Start frontend (from /frontend)
+npx expo start
+```
 
 ---
 
