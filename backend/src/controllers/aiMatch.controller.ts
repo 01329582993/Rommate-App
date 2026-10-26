@@ -15,14 +15,12 @@
 import { Request, Response } from 'express';
 import { calculateCompatibility, ScoringProfile } from '../utils/scoring';
 import { enrichWithLLM } from '../utils/llmScoring';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../utils/prisma';
 
 // ── Helper: map Prisma user to ScoringProfile ─────────────────────────────────
 function userToScoringProfile(user: any): ScoringProfile | null {
-  if (!user?.preferences) return null;
-  const p = user.preferences;
+  if (!user?.profile) return null;
+  const p = user.profile;
   return {
     sleepSchedule:  p.sleepSchedule  || 'EARLY',
     noiseTolerance: p.noiseTolerance || 'MEDIUM',
@@ -88,15 +86,15 @@ export const compareUsersWithAI = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Both userIdA and userIdB are required.' });
     }
 
-    // Fetch both users with their preferences
+    // Fetch both users with their profile preferences
     const [userA, userB] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userIdA },
-        include: { preferences: true }
+        include: { profile: true }
       }),
       prisma.user.findUnique({
         where: { id: userIdB },
-        include: { preferences: true }
+        include: { profile: true }
       }),
     ]);
 

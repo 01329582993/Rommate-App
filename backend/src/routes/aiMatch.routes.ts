@@ -9,7 +9,7 @@
 
 import { Router } from 'express';
 import { compareProfilesWithAI, compareUsersWithAI } from '../controllers/aiMatch.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateJWT } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -17,12 +17,12 @@ const router = Router();
  * POST /api/match/ai/profiles
  * Body: { profileA: ScoringProfile, profileB: ScoringProfile }
  */
-router.post('/profiles', authenticateToken, compareProfilesWithAI);
+router.post('/profiles', authenticateJWT, compareProfilesWithAI);
 
 /**
  * POST /api/match/ai/users
  * Body: { userIdA: string, userIdB: string }
  */
-router.post('/users', authenticateToken, compareUsersWithAI);
+router.post('/users', authenticateJWT, compareUsersWithAI);
 
 export default router;
