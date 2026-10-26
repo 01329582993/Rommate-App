@@ -67,6 +67,13 @@ The heartbeat of RoomSync is its scoring algorithm:
 
 ---
 
+## 👥 Core Team & Contributors
+
+* **Limas Soubello** ([@01329582993](https://github.com/01329582993)) — Lead Developer
+* **Katim Gaye** ([@katimgaye-cse22](https://github.com/katimgaye-cse22)) — Collaborator & Contributor
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
