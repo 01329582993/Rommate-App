@@ -21,8 +21,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ScoringProfile, CompatibilityResult } from './scoring';
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+function getGeminiModel() {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  const genAI = new GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,11 +148,19 @@ export async function enrichWithLLM(
 
   try {
     const prompt = buildPrompt(p1, p2, result);
+    const model = getGeminiModel();
     const response = await model.generateContent(prompt);
     const text = response.response.text().trim();
 
+    // Strip markdown code fences if Gemini returns ```json ... ```
+    const cleanedText = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
     // Parse the JSON response
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(cleanedText);
 
     return {
       score: result.score,

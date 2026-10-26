@@ -25,3 +25,9 @@ frontend/.expo/
 
 # Temp files
 *.tmp*
+
+# Environment secrets
+.env
+*.env
+backend/.env
+
