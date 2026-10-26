@@ -65,6 +65,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/review', reviewRoutes);
 app.use('/api/users', userRoutes);
 
 // Global 404 Handler
